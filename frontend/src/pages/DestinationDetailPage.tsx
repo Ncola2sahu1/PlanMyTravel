@@ -260,14 +260,108 @@ export const DestinationDetailPage: React.FC = () => {
                 Where to Stay in {destination.name}
               </h3>
             </div>
-            <Link to="/stays" className="text-xs font-semibold text-charcoal-800 hover:text-forest-800">
-              View all stays →
+            <Link
+              to={`/stays?destination=${encodeURIComponent(destination.name)}`}
+              className="text-xs font-semibold text-charcoal-800 hover:text-forest-800 transition-colors"
+            >
+              View all stays in {destination.name} →
             </Link>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {destination.related_stays.map(stay => (
-              <StayCard key={stay.id} stay={stay} onSelect={() => navigate(`/stays`)} />
+              <StayCard
+                key={stay.id}
+                stay={stay}
+                onSelect={() => navigate(`/stays?destination=${encodeURIComponent(destination.name)}&stay=${stay.id}`)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Certified Personal Local Guides Section */}
+      {destination.local_guides && destination.local_guides.length > 0 && (
+        <section className="pt-8 border-t border-charcoal-100">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-widest text-forest-800 block mb-1">Private Concierge</span>
+              <h3 className="font-serif text-2xl font-medium text-charcoal-900">
+                Certified Personal Guides in {destination.name}
+              </h3>
+            </div>
+            <Link
+              to={`/concierge?destination=${encodeURIComponent(destination.name)}`}
+              className="text-xs font-semibold text-charcoal-800 hover:text-forest-800 transition-colors"
+            >
+              Generate Itinerary with Guide →
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {destination.local_guides.map(guide => (
+              <div
+                key={guide.id}
+                className="bg-white rounded-3xl border border-charcoal-100 p-6 shadow-soft-sm hover:shadow-soft-md transition-all flex flex-col justify-between space-y-4"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3.5">
+                    <img
+                      src={guide.photo_url || '/images/guides/guide_1.jpg'}
+                      alt={guide.display_name}
+                      className="w-14 h-14 rounded-2xl object-cover border border-charcoal-200"
+                    />
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="font-serif text-lg font-medium text-charcoal-900">{guide.display_name}</h4>
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-sage-100 text-forest-800">Verified</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-amber-500 font-semibold mt-0.5">
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        <span>{guide.rating.toFixed(2)}</span>
+                        <span className="text-charcoal-400 font-normal">({guide.review_count || 120} reviews)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-charcoal-600 line-clamp-3 font-light leading-relaxed">
+                    {guide.bio}
+                  </p>
+
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex flex-wrap gap-1">
+                      {guide.languages.map((l, i) => (
+                        <span key={i} className="px-2 py-0.5 rounded-full bg-ivory-100 text-[10px] text-charcoal-700 font-medium">
+                          {l}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {guide.specialties.map((s, i) => (
+                        <span key={i} className="px-2 py-0.5 rounded-full bg-sage-50 text-[10px] text-forest-800 font-medium border border-sage-200/50">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-charcoal-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-bold text-charcoal-900">
+                      ₹{guide.daily_rate.toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-[10px] text-charcoal-500"> / day</span>
+                  </div>
+
+                  <Link
+                    to={`/concierge?destination=${encodeURIComponent(destination.name)}`}
+                    className="px-4 py-2 rounded-full bg-forest-800 hover:bg-forest-900 text-white text-xs font-semibold transition-colors"
+                  >
+                    Select Guide
+                  </Link>
+                </div>
+              </div>
             ))}
           </div>
         </section>

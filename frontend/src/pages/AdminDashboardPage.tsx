@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Plus, Trash2, Edit3, Image as ImageIcon, FileText, CheckCircle2, AlertCircle, Upload, Eye, EyeOff, Lock, Mail, ArrowRight } from 'lucide-react';
-import { Destination, AdminAuditLog } from '../types';
+import { ShieldCheck, Plus, Trash2, Edit3, Image as ImageIcon, FileText, CheckCircle2, AlertCircle, Upload, Eye, EyeOff, Lock, Mail, ArrowRight, Users, Check, X } from 'lucide-react';
+import { Destination, AdminAuditLog, Guide } from '../types';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,7 +9,9 @@ export const AdminDashboardPage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
-  const [activeTab, setActiveTab] = useState<'destinations' | 'media' | 'logs'>('destinations');
+  const [guides, setGuides] = useState<Guide[]>([]);
+  const [activeTab, setActiveTab] = useState<'destinations' | 'guides' | 'media' | 'logs'>('destinations');
+  const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Inline staff login state
@@ -44,19 +46,44 @@ export const AdminDashboardPage: React.FC = () => {
     if (!isAdmin) return;
     setLoading(true);
     try {
-      const [statsRes, destRes, logsRes] = await Promise.all([
+      const [statsRes, destRes, logsRes, guidesRes] = await Promise.all([
         api.getAdminStats(),
         api.adminListDestinations(),
         api.adminGetAuditLogs(),
+        api.adminGetGuides(),
       ]);
       setStats(statsRes);
       if (destRes?.destinations) setDestinations(destRes.destinations);
       if (logsRes?.audit_logs) setAuditLogs(logsRes.audit_logs);
+      if (guidesRes?.guides) setGuides(guidesRes.guides);
     } catch (err: any) {
       console.error('Failed to load admin data:', err);
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleApproveGuide = async (guideId: number) => {
+    try {
+      await api.adminApproveGuide(guideId);
+      setMessage('Guide approved and verified successfully!');
+      setTimeout(() => setMessage(''), 3000);
+      loadAdminData();
+    } catch (err: any) {
+      setError(err.message || 'Failed to approve guide');
+    }
+  };
+
+  const handleRejectGuide = async (guideId: number) => {
+    if (!window.confirm('Are you sure you want to reject this guide application?')) return;
+    try {
+      await api.adminRejectGuide(guideId);
+      setMessage('Guide application marked as rejected.');
+      setTimeout(() => setMessage(''), 3000);
+      loadAdminData();
+    } catch (err: any) {
+      setError(err.message || 'Failed to reject guide');
     }
   };
 
@@ -335,6 +362,19 @@ export const AdminDashboardPage: React.FC = () => {
           Destinations Management ({destinations.length})
         </button>
         <button
+          onClick={() => setActiveTab('guides')}
+          className={`pb-3 transition-colors flex items-center gap-2 ${
+            activeTab === 'guides' ? 'border-b-2 border-forest-800 text-forest-800' : 'text-charcoal-400 hover:text-charcoal-800'
+          }`}
+        >
+          <span>Tour Guides & Approvals ({guides.length})</span>
+          {guides.filter(g => g.approval_status === 'pending').length > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-800 font-bold">
+              {guides.filter(g => g.approval_status === 'pending').length} pending
+            </span>
+          )}
+        </button>
+        <button
           onClick={() => setActiveTab('media')}
           className={`pb-3 transition-colors ${
             activeTab === 'media' ? 'border-b-2 border-forest-800 text-forest-800' : 'text-charcoal-400 hover:text-charcoal-800'
@@ -412,7 +452,195 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 2: Cloudinary Media Upload */}
+      {/* Tab: Tour Guides & Verification Management */}
+      {activeTab === 'guides' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-serif text-2xl font-medium text-charcoal-900">Personal Guides Verification</h3>
+              <p className="text-xs text-charcoal-500 mt-1 font-light">
+                Inspect applicant credentials, verify uploaded government IDs, and approve guides to activate them on itineraries.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl border border-charcoal-100 shadow-soft overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-ivory-50 text-charcoal-400 uppercase tracking-wider font-semibold border-b border-charcoal-100">
+                  <tr>
+                    <th className="py-4 px-6">Guide Applicant</th>
+                    <th className="py-4 px-6">Service Region</th>
+                    <th className="py-4 px-6">Daily Rate</th>
+                    <th className="py-4 px-6">Languages & Specialties</th>
+                    <th className="py-4 px-6">Government ID / Credentials</th>
+                    <th className="py-4 px-6">Status</th>
+                    <th className="py-4 px-6 text-right">Verification Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-charcoal-100">
+                  {guides.map(g => (
+                    <tr key={g.id} className="hover:bg-ivory-50/50 transition-colors">
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={g.photo_url || '/images/guides/guide_1.jpg'}
+                            alt={g.display_name}
+                            className="w-10 h-10 rounded-full object-cover border border-charcoal-200"
+                          />
+                          <div>
+                            <span className="font-semibold text-charcoal-900 block">{g.display_name}</span>
+                            <span className="text-[11px] text-charcoal-400">{g.contact_email || 'No email provided'}</span>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-4 px-6 font-medium text-charcoal-800">
+                        {g.destination || 'Global'}
+                      </td>
+
+                      <td className="py-4 px-6 font-semibold text-charcoal-900">
+                        ₹{g.daily_rate.toLocaleString('en-IN')} / day
+                      </td>
+
+                      <td className="py-4 px-6">
+                        <div className="space-y-1 max-w-xs">
+                          <div className="flex flex-wrap gap-1">
+                            {g.languages?.map((l, i) => (
+                              <span key={i} className="px-1.5 py-0.2 rounded bg-ivory-100 text-[10px] text-charcoal-700">
+                                {l}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {g.specialties?.map((s, i) => (
+                              <span key={i} className="px-1.5 py-0.2 rounded bg-sage-50 text-[10px] text-forest-800 border border-sage-200/50">
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-4 px-6">
+                        {g.id_document_url ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDocUrl(g.id_document_url || null)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-forest-50 text-forest-800 hover:bg-forest-100 text-xs font-semibold border border-forest-200 transition-colors"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-forest-700" />
+                            <span>View ID Proof</span>
+                          </button>
+                        ) : (
+                          <span className="text-charcoal-400 italic">No document attached</span>
+                        )}
+                      </td>
+
+                      <td className="py-4 px-6">
+                        {g.approval_status === 'approved' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-sage-100 text-forest-800">
+                            <CheckCircle2 className="w-3 h-3 text-sage-600" />
+                            <span>Approved & Active</span>
+                          </span>
+                        ) : g.approval_status === 'rejected' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-terracotta-50 text-terracotta-800">
+                            <AlertCircle className="w-3 h-3 text-terracotta-600" />
+                            <span>Rejected</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-amber-100 text-amber-800">
+                            <ShieldCheck className="w-3 h-3 text-amber-600" />
+                            <span>Pending Staff Approval</span>
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {g.approval_status !== 'approved' && (
+                            <button
+                              onClick={() => handleApproveGuide(g.id)}
+                              className="px-3 py-1.5 rounded-full bg-forest-800 hover:bg-forest-900 text-white text-xs font-semibold transition-colors flex items-center gap-1"
+                              title="Approve Guide"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Approve</span>
+                            </button>
+                          )}
+                          {g.approval_status !== 'rejected' && (
+                            <button
+                              onClick={() => handleRejectGuide(g.id)}
+                              className="px-3 py-1.5 rounded-full bg-terracotta-50 hover:bg-terracotta-100 text-terracotta-800 text-xs font-semibold transition-colors flex items-center gap-1"
+                              title="Reject Guide Application"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span>Reject</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ID Document Preview Modal */}
+      {previewDocUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="relative w-full max-w-xl bg-white rounded-3xl p-6 space-y-4 shadow-float">
+            <div className="flex items-center justify-between pb-3 border-b border-charcoal-100">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-forest-800" />
+                <h4 className="font-serif text-lg font-medium text-charcoal-900">Government ID / Professional Credential</h4>
+              </div>
+              <button
+                onClick={() => setPreviewDocUrl(null)}
+                className="p-1.5 rounded-full text-charcoal-400 hover:text-charcoal-800 hover:bg-ivory-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-ivory-100 border border-charcoal-200 flex items-center justify-center">
+              {previewDocUrl.endsWith('.pdf') ? (
+                <div className="text-center p-6 space-y-2">
+                  <FileText className="w-12 h-12 text-forest-800 mx-auto" />
+                  <p className="text-xs font-semibold text-charcoal-800">Verified PDF Document Uploaded</p>
+                  <a
+                    href={previewDocUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-bold text-forest-800 underline"
+                  >
+                    Open Document in New Tab
+                  </a>
+                </div>
+              ) : (
+                <img
+                  src={previewDocUrl}
+                  alt="Government ID Proof Preview"
+                  className="w-full h-full object-contain"
+                />
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setPreviewDocUrl(null)}
+                className="px-5 py-2 rounded-full bg-charcoal-900 text-white text-xs font-semibold"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {activeTab === 'media' && (
         <div className="bg-white rounded-3xl border border-charcoal-100 p-8 shadow-soft max-w-xl mx-auto space-y-6">
           <div>

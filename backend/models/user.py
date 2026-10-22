@@ -53,6 +53,13 @@ class User(db.Model):
         self.preferences_json = json.dumps(value or {})
 
     def to_dict(self):
+        wallet_bal = 0.0
+        try:
+            if self.wallet:
+                wallet_bal = round(self.wallet.balance or 0.0, 2)
+        except Exception:
+            pass
+
         return {
             "id": self.id,
             "email": self.email,
@@ -66,6 +73,7 @@ class User(db.Model):
             "preferences": self.preferences,
             "role": self.role,
             "is_active": bool(self.is_active),
+            "wallet_balance": wallet_bal,
             "created_at": self.created_at,
         }
 

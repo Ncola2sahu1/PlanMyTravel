@@ -10,6 +10,7 @@ export interface User {
   bio?: string;
   role: string;
   is_active: boolean;
+  wallet_balance?: number;
   created_at: string;
 }
 
@@ -65,6 +66,7 @@ export interface Destination {
   activities?: string[];
   gallery?: DestinationImage[];
   related_stays?: Stay[];
+  local_guides?: Guide[];
   insights?: Array<{ title: string; snippet: string; link?: string }>;
 }
 
@@ -82,10 +84,63 @@ export interface Stay {
   currency: string;
   rating: number;
   review_count?: number;
+  latitude?: number;
+  longitude?: number;
+  address?: string;
   amenities: string[];
   is_verified_provider: boolean;
   source: string;
   requires_partner_checkout: boolean;
+}
+
+export interface Guide {
+  id: number;
+  user_id?: number;
+  display_name: string;
+  bio?: string;
+  destination: string;
+  languages: string[];
+  specialties: string[];
+  daily_rate: number;
+  currency: string;
+  rating: number;
+  review_count: number;
+  photo_url: string;
+  id_document_url?: string;
+  approval_status: 'pending' | 'approved' | 'rejected';
+  is_verified: boolean;
+  is_active: boolean;
+  contact_email?: string;
+  contact_phone?: string;
+  created_at: string;
+}
+
+export interface Review {
+  id: number;
+  user_id: number;
+  user_name?: string;
+  stay_id?: string;
+  guide_id?: number;
+  destination_id?: number;
+  rating: number;
+  title?: string;
+  body: string;
+  is_verified: boolean;
+  created_at: string;
+}
+
+export interface WeatherData {
+  destination: string;
+  date: string;
+  temperature_c: number;
+  temp_max_c: number;
+  temp_min_c: number;
+  condition: string;
+  icon: string;
+  precipitation_probability: number;
+  advice: string;
+  coordinates: { lat: number; lng: number };
+  source: string;
 }
 
 export interface FlightOption {
@@ -158,6 +213,8 @@ export interface Itinerary {
   transfers?: TransferOption[];
   accommodations?: Stay[];
   verified_hotel_options?: Stay[];
+  assigned_guide?: Guide;
+  available_guides?: Guide[];
   days: ItineraryDay[];
   budget_breakdown: BudgetBreakdown;
   practical_tips?: string[];

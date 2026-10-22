@@ -237,3 +237,91 @@ def test_admin_route_security_rejects_unauthorized(client):
     # Traveler attempts to call admin stats -> MUST return 403
     res = client.get("/api/admin/stats")
     assert res.status_code in (401, 403)
+
+
+def test_stays_destination_filter_returns_regional_hotels(client):
+    """Ensure stays search strictly returns properties in the specified region."""
+    # Search Kyoto
+    res_kyoto = client.get("/api/stays?destination=Kyoto")
+    assert res_kyoto.status_code == 200
+    data_kyoto = res_kyoto.get_json()
+    assert len(data_kyoto["stays"]) > 0
+    for s in data_kyoto["stays"]:
+        assert "kyoto" in s["city"].lower() or "japan" in s.get("country", "").lower()
+
+    # Search Singapore
+    res_sg = client.get("/api/stays?destination=Singapore")
+    assert res_sg.status_code == 200
+    data_sg = res_sg.get_json()
+    assert len(data_sg["stays"]) > 0
+    for s in data_sg["stays"]:
+        assert "singapore" in s["city"].lower()
+
+
+def test_stays_weather_forecast_endpoint(client):
+    """Ensure weather endpoint responds with temperature and atmospheric condition."""
+    res = client.get("/api/stays/weather?destination=Singapore&date=2026-10-25&lat=1.2847&lng=103.8540")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert "temperature_c" in data
+    assert "condition" in data
+    assert "advice" in data
+
+
+def test_guide_discovery_and_registration(client):
+    """Ensure guide listing and candidate registration operate with pending approval."""
+    # List approved guides
+    res_list = client.get("/api/guides?destination=Singapore")
+    assert res_list.status_code == 200
+    guides = res_list.get_json().get("guides", [])
+    assert len(guides) > 0
+
+    # Register candidate
+    res_reg = client.post("/api/guides/register", json={
+        "display_name": "New Candidate Guide",
+        "destination": "Singapore",
+        "bio": "Expert in hawker culture and heritage architecture.",
+        "languages": ["English", "Malay"],
+        "specialties": ["Culinary"],
+        "daily_rate": 4500,
+        "contact_email": f"guide_{random.randint(100, 99999)}@test.com",
+        "contact_phone": "+65 9111 2222",
+        "photo_url": "/images/guides/guide_1.jpg",
+        "id_document_url": "https://example.com/id.pdf"
+    })
+    assert res_reg.status_code == 201
+    assert res_reg.get_json()["guide"]["approval_status"] == "pending"
+
+
+def test_review_authorization_protection(app):
+    """Ensure only travelers who completed a booking can submit verified reviews."""
+    auth_client = app.test_client()
+    _, csrf = get_authenticated_client(auth_client)
+    headers = {"X-CSRF-Token": csrf}
+
+    # 1. Traveler without completed booking attempts review -> MUST return 403
+    unauth_res = auth_client.post("/api/reviews", json={
+        "stay_id": "stay_sg_1",
+        "rating": 5,
+        "title": "Unauthorized attempt",
+        "body": "Should fail with 403"
+    }, headers=headers)
+    assert unauth_res.status_code == 403
+
+    # 2. Complete a booking for this user
+    with app.app_context():
+        user = User.query.filter_by(email=auth_client.get("/api/auth/me").get_json()["user"]["email"]).first()
+        b = Booking(user_id=user.id, status="completed", total_amount=15000, payment_status="paid")
+        db.session.add(b)
+        db.session.commit()
+
+    # 3. Now review submission MUST succeed with 201
+    auth_res = auth_client.post("/api/reviews", json={
+        "stay_id": "stay_sg_1",
+        "rating": 5,
+        "title": "Authorized review",
+        "body": "Wonderful boutique stay experience."
+    }, headers=headers)
+    assert auth_res.status_code == 201
+    assert auth_res.get_json()["success"] is True
+

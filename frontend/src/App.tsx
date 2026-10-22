@@ -14,6 +14,7 @@ import { MyTripsPage } from './pages/MyTripsPage';
 import { WalletPage } from './pages/WalletPage';
 import { BookingsPage } from './pages/BookingsPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { GuideRegistrationPage } from './pages/GuideRegistrationPage';
 
 export const App: React.FC = () => {
   return (
@@ -32,6 +33,7 @@ export const App: React.FC = () => {
               <Route path="/wallet" element={<WalletPage />} />
               <Route path="/bookings" element={<BookingsPage />} />
               <Route path="/admin" element={<AdminDashboardPage />} />
+              <Route path="/become-a-guide" element={<GuideRegistrationPage />} />
             </Routes>
           </main>
           <Footer />

@@ -91,6 +91,37 @@ export const api = {
     return apiRequest(`/api/stays?${query.toString()}`);
   },
   getStay: (id: string) => apiRequest(`/api/stays/${id}`),
+  getStaysWeather: (params: { destination?: string; date?: string; lat?: number; lng?: number }) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') query.append(k, String(v));
+    });
+    return apiRequest(`/api/stays/weather?${query.toString()}`);
+  },
+  getStaysConfig: () => apiRequest('/api/stays/config'),
+
+  // Guides
+  getGuides: (params: Record<string, any> = {}) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') query.append(k, String(v));
+    });
+    return apiRequest(`/api/guides?${query.toString()}`);
+  },
+  getGuide: (id: number | string) => apiRequest(`/api/guides/${id}`),
+  registerGuide: (payload: Record<string, any>) =>
+    apiRequest('/api/guides/register', { method: 'POST', body: JSON.stringify(payload) }),
+
+  // Reviews
+  getReviews: (params: Record<string, any> = {}) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') query.append(k, String(v));
+    });
+    return apiRequest(`/api/reviews?${query.toString()}`);
+  },
+  createReview: (payload: Record<string, any>) =>
+    apiRequest('/api/reviews', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Flights
   searchFlights: (params: { origin?: string; destination?: string; date?: string; travelers?: number }) => {
@@ -132,6 +163,8 @@ export const api = {
     apiRequest('/api/bookings', { method: 'POST', body: JSON.stringify(payload) }),
   payBookingViaWallet: (bookingId: number) =>
     apiRequest(`/api/bookings/${bookingId}/pay-wallet`, { method: 'POST' }),
+  completeBooking: (bookingId: number) =>
+    apiRequest(`/api/bookings/${bookingId}/complete`, { method: 'POST' }),
 
   // Admin
   getAdminStats: () => apiRequest('/api/admin/stats'),
@@ -145,5 +178,16 @@ export const api = {
   adminGetAuditLogs: () => apiRequest('/api/admin/audit-logs'),
   adminUploadMedia: (formData: FormData) =>
     apiRequest('/api/admin/media/upload', { method: 'POST', body: formData }),
+  adminGetGuides: (params: Record<string, any> = {}) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') query.append(k, String(v));
+    });
+    return apiRequest(`/api/admin/guides?${query.toString()}`);
+  },
+  adminApproveGuide: (id: number) =>
+    apiRequest(`/api/admin/guides/${id}/approve`, { method: 'POST' }),
+  adminRejectGuide: (id: number) =>
+    apiRequest(`/api/admin/guides/${id}/reject`, { method: 'POST' }),
 };
 

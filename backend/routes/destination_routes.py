@@ -83,6 +83,18 @@ def get_destination_details(identifier: str):
     # Attach related stays from hotel service
     data["related_stays"] = hotel_service.search_hotels(destination=dest.name, limit=4)
 
+    # Attach verified personal local guides for this destination
+    from backend.models.guide import Guide
+    guides = Guide.query.filter(
+        ((Guide.approval_status == "approved") | (Guide.is_verified == 1)) &
+        (Guide.destination.ilike(f"%{dest.name}%"))
+    ).all()
+    if not guides:
+        guides = Guide.query.filter(
+            (Guide.approval_status == "approved") | (Guide.is_verified == 1)
+        ).limit(3).all()
+    data["local_guides"] = [g.to_dict() for g in guides]
+
     # Optionally enrich with Serp insights if available
     serp_notes = serp_service.search_destination_insights(dest.name)
     if serp_notes:

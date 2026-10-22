@@ -185,3 +185,69 @@ def upload_media():
         return jsonify({"message": "Media uploaded", "asset": asset.to_dict()}), 201
     except Exception as e:
         return jsonify({"error": f"Upload failed: {e}"}), 500
+
+
+@admin_bp.route("/guides", methods=["GET"])
+@admin_required
+def admin_list_guides():
+    """List all personal guide registrations for administrative review."""
+    from backend.models.guide import Guide
+    status = request.args.get("status", "").strip()
+
+    query = Guide.query
+    if status:
+        query = query.filter_by(approval_status=status)
+
+    guides = query.order_by(Guide.created_at.desc()).all()
+    return jsonify({
+        "total": len(guides),
+        "guides": [g.to_dict() for g in guides],
+    })
+
+
+@admin_bp.route("/guides/<int:guide_id>/approve", methods=["POST"])
+@admin_required
+def admin_approve_guide(guide_id: int):
+    """Approve candidate guide and publish to itinerary discovery."""
+    from backend.models.guide import Guide
+    guide = db.session.get(Guide, guide_id)
+    if not guide:
+        return jsonify({"error": "Guide not found"}), 404
+
+    guide.approval_status = "approved"
+    guide.is_verified = 1
+    guide.is_active = 1
+    guide.updated_at = datetime.now(timezone.utc).isoformat()
+    db.session.commit()
+
+    log_admin_action("approve_guide", entity_type="guides", entity_id=str(guide.id), details={"name": guide.display_name, "destination": guide.destination})
+
+    return jsonify({
+        "success": True,
+        "message": f"Guide '{guide.display_name}' has been approved and published.",
+        "guide": guide.to_dict(),
+    })
+
+
+@admin_bp.route("/guides/<int:guide_id>/reject", methods=["POST"])
+@admin_required
+def admin_reject_guide(guide_id: int):
+    """Reject candidate guide application."""
+    from backend.models.guide import Guide
+    guide = db.session.get(Guide, guide_id)
+    if not guide:
+        return jsonify({"error": "Guide not found"}), 404
+
+    guide.approval_status = "rejected"
+    guide.is_verified = 0
+    guide.updated_at = datetime.now(timezone.utc).isoformat()
+    db.session.commit()
+
+    log_admin_action("reject_guide", entity_type="guides", entity_id=str(guide.id), details={"name": guide.display_name})
+
+    return jsonify({
+        "success": True,
+        "message": f"Guide application for '{guide.display_name}' was rejected.",
+        "guide": guide.to_dict(),
+    })
+

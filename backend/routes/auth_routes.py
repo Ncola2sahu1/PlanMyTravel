@@ -44,7 +44,7 @@ def register():
     db.session.commit()
 
     # Automatically create user's initial wallet
-    WalletService.get_or_create_wallet(user.id)
+    wallet = WalletService.get_or_create_wallet(user.id)
 
     # Establish session
     session["user_id"] = user.id
@@ -56,6 +56,7 @@ def register():
     return jsonify({
         "message": "Account created successfully",
         "user": user.to_dict(),
+        "wallet_balance": round(wallet.balance or 0.0, 2),
         "csrf_token": generate_csrf_token(),
     }), 201
 
@@ -77,7 +78,7 @@ def login():
         return jsonify({"error": "This account is inactive. Please contact support."}), 403
 
     # Ensure wallet exists
-    WalletService.get_or_create_wallet(user.id)
+    wallet = WalletService.get_or_create_wallet(user.id)
 
     session["user_id"] = user.id
     session["user_email"] = user.email
@@ -88,6 +89,7 @@ def login():
     return jsonify({
         "message": "Signed in successfully",
         "user": user.to_dict(),
+        "wallet_balance": round(wallet.balance or 0.0, 2),
         "csrf_token": generate_csrf_token(),
     })
 
@@ -115,8 +117,10 @@ def current_user_info():
     if user_id:
         user = db.session.get(User, user_id)
         if user and user.is_active:
+            wallet = WalletService.get_or_create_wallet(user.id)
             res["authenticated"] = True
             res["user"] = user.to_dict()
+            res["wallet_balance"] = round(wallet.balance or 0.0, 2)
 
     if admin_id:
         admin = db.session.get(AdminUser, admin_id)

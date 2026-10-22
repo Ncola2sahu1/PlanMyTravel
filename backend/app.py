@@ -55,6 +55,8 @@ def create_app(test_config=None) -> Flask:
     from backend.routes.wallet_routes import wallet_bp
     from backend.routes.booking_routes import booking_bp
     from backend.routes.admin_routes import admin_bp
+    from backend.routes.guide_routes import guide_bp
+    from backend.routes.review_routes import review_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(auth_bp)
@@ -66,6 +68,17 @@ def create_app(test_config=None) -> Flask:
     app.register_blueprint(wallet_bp)
     app.register_blueprint(booking_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(guide_bp)
+    app.register_blueprint(review_bp)
+
+    # Images serving
+    images_dir = Path(__file__).resolve().parent.parent / "frontend" / "public" / "images"
+
+    @app.route("/images/<path:filename>")
+    def serve_images(filename):
+        if images_dir.exists():
+            return send_from_directory(images_dir, filename)
+        return jsonify({"error": "Image not found"}), 404
 
     # Frontend SPA serving
     frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"

@@ -250,3 +250,156 @@ def seed_database_if_needed():
         logger.error("Error during destination seeding: %s", e)
         db.session.rollback()
 
+    seed_guides_if_needed()
+
+
+CURATED_GUIDES = [
+    {
+        "display_name": "Marcus Tan",
+        "destination": "Singapore",
+        "bio": "Katong native with 12 years of guiding experience. Marcus uncovers secret heritage shophouses, colonial archives, and the most authentic Michelin hawker stalls in Singapore.",
+        "languages": ["English", "Mandarin", "Hokkien"],
+        "specialties": ["Hawker Food & Michelin Stalls", "Peranakan Heritage", "Urban Architecture"],
+        "daily_rate": 4200.0,
+        "rating": 4.96,
+        "review_count": 128,
+        "photo_url": "/images/guides/guide_1.jpg",
+        "approval_status": "approved",
+        "is_verified": 1,
+        "contact_email": "marcus.tan.guide@planmytravel.com",
+        "contact_phone": "+65 9123 4567"
+    },
+    {
+        "display_name": "Kenjiro Takahashi",
+        "destination": "Kyoto",
+        "bio": "Licensed national interpreter-guide and lifelong Kyoto resident. Trained in traditional tea ceremony and temple architecture throughout Higashiyama and Arashiyama.",
+        "languages": ["Japanese", "English"],
+        "specialties": ["Zen Gardens & Shrines", "Kaiseki Etiquette", "Bamboo Groves & Shinto Lore"],
+        "daily_rate": 6500.0,
+        "rating": 4.98,
+        "review_count": 214,
+        "photo_url": "/images/guides/guide_2.jpg",
+        "approval_status": "approved",
+        "is_verified": 1,
+        "contact_email": "kenjiro.kyoto@planmytravel.com",
+        "contact_phone": "+81 75 123 4567"
+    },
+    {
+        "display_name": "Giulia Romano",
+        "destination": "Amalfi Coast",
+        "bio": "Positano native and certified regional mountain trekking leader. Known for private wooden gozzo boat excursions and coastal walks along the dramatic Path of the Gods.",
+        "languages": ["Italian", "English", "French"],
+        "specialties": ["Path of the Gods Hiking", "Limoncello Tastings", "Private Wooden Boats"],
+        "daily_rate": 7800.0,
+        "rating": 4.94,
+        "review_count": 95,
+        "photo_url": "/images/guides/guide_3.jpg",
+        "approval_status": "approved",
+        "is_verified": 1,
+        "contact_email": "giulia.amalfi@planmytravel.com",
+        "contact_phone": "+39 089 123 4567"
+    },
+    {
+        "display_name": "Lukas Weber",
+        "destination": "Swiss Alps",
+        "bio": "IFMGA alpine guide from Zermatt. Expert in high-elevation wildflower paths, Matterhorn perspectives, and panoramic rail journeys across the Valais.",
+        "languages": ["German", "English", "French"],
+        "specialties": ["Matterhorn Hiking", "Glacier Safety", "Scenic Cogwheel Rail"],
+        "daily_rate": 8900.0,
+        "rating": 4.99,
+        "review_count": 162,
+        "photo_url": "/images/guides/guide_4.jpg",
+        "approval_status": "approved",
+        "is_verified": 1,
+        "contact_email": "lukas.zermatt@planmytravel.com",
+        "contact_phone": "+41 27 123 4567"
+    },
+    {
+        "display_name": "Vikramaditya Singh",
+        "destination": "Udaipur & Rajasthan",
+        "bio": "Historian and Mewar cultural custodian. Specializes in Lake Pichola royal palace architecture, artisan miniature painting workshops, and private heritage walks.",
+        "languages": ["Hindi", "English", "Rajasthani"],
+        "specialties": ["Mewari Royal Lineage", "Miniature Haveli Art", "Lake Pichola Cruising"],
+        "daily_rate": 3500.0,
+        "rating": 4.97,
+        "review_count": 184,
+        "photo_url": "/images/guides/guide_5.jpg",
+        "approval_status": "approved",
+        "is_verified": 1,
+        "contact_email": "vikramaditya.mewar@planmytravel.com",
+        "contact_phone": "+91 98290 12345"
+    },
+    {
+        "display_name": "Somchai Prasert",
+        "destination": "Thailand",
+        "bio": "Bangkok cultural ambassador specializing in hidden Chao Phraya canal communities, old kingdom temples, and bustling night street food markets.",
+        "languages": ["Thai", "English"],
+        "specialties": ["Chao Phraya Canal Culture", "Hidden Night Markets", "Buddhist Temples"],
+        "daily_rate": 3800.0,
+        "rating": 4.92,
+        "review_count": 147,
+        "photo_url": "/images/guides/guide_6.jpg",
+        "approval_status": "approved",
+        "is_verified": 1,
+        "contact_email": "somchai.bangkok@planmytravel.com",
+        "contact_phone": "+66 81 234 5678"
+    },
+    {
+        "display_name": "Elena Rostova",
+        "destination": "Swiss Alps",
+        "bio": "Experienced alpine hiking enthusiast applying for staff verification to lead photography walks in Zermatt and Grindelwald.",
+        "languages": ["English", "Italian", "German"],
+        "specialties": ["Alpine Botany", "Sunset Photography"],
+        "daily_rate": 5200.0,
+        "rating": 5.0,
+        "review_count": 0,
+        "photo_url": "/images/guides/guide_7.jpg",
+        "id_document_url": "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80",
+        "approval_status": "pending",
+        "is_verified": 0,
+        "contact_email": "elena.rostova.applicant@gmail.com",
+        "contact_phone": "+41 79 987 6543"
+    }
+]
+
+
+def seed_guides_if_needed():
+    """Seed certified local guides for all major explore destinations."""
+    from backend.models.guide import Guide
+    try:
+        count = Guide.query.count()
+        if count >= 6:
+            return
+
+        logger.info("Seeding verified local guides for destinations (current count: %d)...", count)
+        for g_data in CURATED_GUIDES:
+            existing = Guide.query.filter_by(display_name=g_data["display_name"]).first()
+            if existing:
+                continue
+
+            guide = Guide(
+                display_name=g_data["display_name"],
+                destination=g_data["destination"],
+                bio=g_data["bio"],
+                daily_rate=g_data["daily_rate"],
+                rating=g_data["rating"],
+                review_count=g_data["review_count"],
+                photo_url=g_data["photo_url"],
+                id_document_url=g_data.get("id_document_url"),
+                approval_status=g_data["approval_status"],
+                is_verified=g_data["is_verified"],
+                is_active=1,
+                contact_email=g_data["contact_email"],
+                contact_phone=g_data["contact_phone"],
+            )
+            guide.languages = g_data["languages"]
+            guide.specialties = g_data["specialties"]
+            db.session.add(guide)
+
+        db.session.commit()
+        logger.info("Curated guides seeded successfully.")
+    except Exception as e:
+        logger.error("Error during guide seeding: %s", e)
+        db.session.rollback()
+
+

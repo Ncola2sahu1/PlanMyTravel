@@ -29,11 +29,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authModalTab, setAuthModalTab] = useState<'login' | 'register' | 'admin'>('login');
 
   const refreshWallet = async () => {
-    if (!user) return;
     try {
       const data = await api.getWallet();
       if (data?.wallet?.balance !== undefined) {
-        setWalletBalance(data.wallet.balance);
+        setWalletBalance(Number(data.wallet.balance));
       }
     } catch {
       // Ignore wallet fetch errors when not logged in
@@ -45,9 +44,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await api.me();
       if (res.authenticated && res.user) {
         setUser(res.user);
-        refreshWallet();
+        if (typeof res.user.wallet_balance === 'number') {
+          setWalletBalance(Number(res.user.wallet_balance));
+        } else if (typeof res.wallet_balance === 'number') {
+          setWalletBalance(Number(res.wallet_balance));
+        }
+        await refreshWallet();
       } else {
         setUser(null);
+        setWalletBalance(0);
       }
       if (res.is_admin && res.admin) {
         setAdmin(res.admin);
@@ -58,6 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Auth check error:', err);
       setUser(null);
       setAdmin(null);
+      setWalletBalance(0);
     } finally {
       setIsLoading(false);
     }
@@ -66,6 +72,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     refreshAuth();
   }, []);
+
+  useEffect(() => {
+    if (user?.id) {
+      refreshWallet();
+    }
+  }, [user?.id]);
 
   const openAuthModal = (tab: 'login' | 'register' | 'admin' = 'login') => {
     setAuthModalTab(tab);

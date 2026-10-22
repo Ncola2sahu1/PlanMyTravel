@@ -79,20 +79,31 @@ class Review(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     destination_id = db.Column(db.Integer, db.ForeignKey("destinations.id", ondelete="CASCADE"), nullable=True)
+    stay_id = db.Column(db.String(100), nullable=True, index=True)
+    guide_id = db.Column(db.Integer, db.ForeignKey("guides.id", ondelete="CASCADE"), nullable=True, index=True)
     package_id = db.Column(db.Integer, nullable=True)
     trip_id = db.Column(db.String(64), db.ForeignKey("trips.id", ondelete="SET NULL"), nullable=True)
     rating = db.Column(db.Integer, nullable=False)
     title = db.Column(db.String(200), nullable=True)
     body = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(50), nullable=False, default="published")
-    is_verified = db.Column(db.Integer, nullable=False, default=0)
+    is_verified = db.Column(db.Integer, nullable=False, default=1)
     created_at = db.Column(db.String(50), nullable=False, default=lambda: datetime.now(timezone.utc).isoformat())
     updated_at = db.Column(db.String(50), nullable=False, default=lambda: datetime.now(timezone.utc).isoformat(), onupdate=lambda: datetime.now(timezone.utc).isoformat())
 
+    # User relationship
+    user = db.relationship("User", backref="user_reviews", lazy="joined")
+
     def to_dict(self):
+        user_name = "Verified Traveler"
+        if self.user:
+            user_name = self.user.name or self.user.full_name or "Verified Traveler"
         return {
             "id": self.id,
             "user_id": self.user_id,
+            "user_name": user_name,
+            "stay_id": self.stay_id,
+            "guide_id": self.guide_id,
             "destination_id": self.destination_id,
             "rating": self.rating,
             "title": self.title,

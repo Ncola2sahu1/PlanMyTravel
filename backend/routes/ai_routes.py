@@ -58,10 +58,26 @@ def generate_trip_plan():
         provider_hotels = hotel_service.search_hotels(destination=destination_name, limit=3)
         if provider_hotels:
             itinerary["verified_hotel_options"] = provider_hotels
+            # Also ensure accommodations array in itinerary has hotels from destination
+            itinerary["accommodations"] = provider_hotels
 
         # Enrich with real flight options
         flights = flight_service.search_flights(origin=origin, destination=destination_name, travelers=travelers)
         itinerary["flight_search_summary"] = flights
+
+        # Enrich with verified local guides
+        from backend.models.guide import Guide
+        matching_guides = Guide.query.filter(
+            ((Guide.approval_status == "approved") | (Guide.is_verified == 1)) &
+            (Guide.destination.ilike(f"%{destination_name}%"))
+        ).all()
+        if not matching_guides:
+            matching_guides = Guide.query.filter(
+                (Guide.approval_status == "approved") | (Guide.is_verified == 1)
+            ).limit(2).all()
+        if matching_guides:
+            itinerary["assigned_guide"] = matching_guides[0].to_dict()
+            itinerary["available_guides"] = [g.to_dict() for g in matching_guides]
 
         return jsonify({
             "success": True,
@@ -72,6 +88,24 @@ def generate_trip_plan():
         logger.error("Itinerary generation error: %s", e)
         # Use reliable fallback plan
         fallback = ai_service._generate_fallback_itinerary(preferences, destination_name)
+        provider_hotels = hotel_service.search_hotels(destination=destination_name, limit=3)
+        if provider_hotels:
+            fallback["verified_hotel_options"] = provider_hotels
+            fallback["accommodations"] = provider_hotels
+
+        from backend.models.guide import Guide
+        fallback_guides = Guide.query.filter(
+            ((Guide.approval_status == "approved") | (Guide.is_verified == 1)) &
+            (Guide.destination.ilike(f"%{destination_name}%"))
+        ).all()
+        if not fallback_guides:
+            fallback_guides = Guide.query.filter(
+                (Guide.approval_status == "approved") | (Guide.is_verified == 1)
+            ).limit(2).all()
+        if fallback_guides:
+            fallback["assigned_guide"] = fallback_guides[0].to_dict()
+            fallback["available_guides"] = [g.to_dict() for g in fallback_guides]
+
         return jsonify({
             "success": True,
             "itinerary": fallback,

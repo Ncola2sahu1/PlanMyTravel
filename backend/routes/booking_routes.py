@@ -65,3 +65,22 @@ def pay_with_wallet(booking_id: int):
     except Exception as e:
         return jsonify({"error": f"Payment error: {e}"}), 500
 
+
+@booking_bp.route("/<int:booking_id>/complete", methods=["POST"])
+@login_required
+def complete_booking(booking_id: int):
+    """Mark a booking as completed once the trip concludes, authorizing verified reviews."""
+    from backend.database import db
+    booking = db.session.get(Booking, booking_id)
+    if not booking or booking.user_id != g.current_user.id:
+        return jsonify({"error": "Booking not found"}), 404
+
+    booking.status = "completed"
+    db.session.commit()
+    return jsonify({
+        "success": True,
+        "message": "Trip marked as completed! You can now write verified reviews for your stay and guide.",
+        "booking": booking.to_dict(),
+    })
+
+

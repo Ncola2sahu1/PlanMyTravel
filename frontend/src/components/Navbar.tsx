@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Compass, Sparkles, Bed, MapPin, Wallet as WalletIcon, Menu, X, ShieldAlert, LogOut } from 'lucide-react';
+import { Compass, Sparkles, Bed, MapPin, Wallet as WalletIcon, Menu, X, ShieldAlert, LogOut, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Navbar: React.FC = () => {
@@ -171,6 +171,14 @@ export const Navbar: React.FC = () => {
                         >
                           <Bed className="w-4 h-4 text-charcoal-400" />
                           <span>My Bookings</span>
+                        </Link>
+                        <Link
+                          to="/become-a-guide"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm text-charcoal-700 hover:bg-ivory-100 transition-colors"
+                        >
+                          <Users className="w-4 h-4 text-charcoal-400" />
+                          <span>Become a Local Guide</span>
                         </Link>
                       </>
                     )}

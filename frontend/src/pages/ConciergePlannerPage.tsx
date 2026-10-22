@@ -246,14 +246,14 @@ export const ConciergePlannerPage: React.FC = () => {
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-charcoal-500 mb-1.5">Approx. Budget ({currency})</label>
               <div className="relative">
-                <DollarSign className="w-4 h-4 absolute left-3.5 top-3.5 text-charcoal-400" />
+                <span className="w-4 h-4 absolute left-3.5 top-2.5 text-charcoal-600 font-bold text-sm select-none">₹</span>
                 <input
                   type="number"
                   step="5000"
                   min="20000"
                   value={budget}
                   onChange={(e) => setBudget(Number(e.target.value))}
-                  className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-charcoal-200 focus:border-forest-800 focus:ring-1 focus:ring-forest-800 outline-none transition-all"
+                  className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-charcoal-200 focus:border-forest-800 focus:ring-1 focus:ring-forest-800 outline-none transition-all"
                 />
               </div>
             </div>
@@ -470,20 +470,80 @@ export const ConciergePlannerPage: React.FC = () => {
             {/* Accommodation */}
             {itinerary.accommodations && itinerary.accommodations.length > 0 && (
               <div className="bg-white rounded-3xl border border-charcoal-100 p-6 shadow-soft space-y-4">
-                <div className="flex items-center gap-2 border-b border-charcoal-100 pb-3">
-                  <Bed className="w-5 h-5 text-forest-800" />
-                  <h3 className="font-serif text-lg font-medium text-charcoal-900">Recommended Boutique Stay</h3>
+                <div className="flex items-center justify-between border-b border-charcoal-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Bed className="w-5 h-5 text-forest-800" />
+                    <h3 className="font-serif text-lg font-medium text-charcoal-900">Recommended Boutique Stay</h3>
+                  </div>
+                  <Link
+                    to={`/stays?destination=${encodeURIComponent(destination)}`}
+                    className="text-xs font-semibold text-forest-800 hover:text-forest-900 transition-colors"
+                  >
+                    Browse all stays in {destination} →
+                  </Link>
                 </div>
                 {itinerary.accommodations.map((acc: any, idx: number) => (
-                  <div key={idx} className="p-4 rounded-2xl bg-ivory-50 text-xs space-y-2">
+                  <div
+                    key={idx}
+                    onClick={() => navigate(`/stays?destination=${encodeURIComponent(destination)}`)}
+                    className="p-4 rounded-2xl bg-ivory-50 hover:bg-ivory-100/80 transition-colors cursor-pointer text-xs space-y-2 border border-transparent hover:border-charcoal-200"
+                  >
                     <div className="flex justify-between font-semibold text-charcoal-900 text-sm">
                       <span>{acc.name}</span>
                       <span className="text-forest-800">₹{acc.nightly_rate?.toLocaleString('en-IN') || '12,000'} / nt</span>
                     </div>
-                    <p className="text-charcoal-600">{acc.category} in {acc.neighborhood || 'Prime Center'}</p>
-                    <p className="text-[11px] text-charcoal-400 italic">{acc.booking_advice || 'Free cancellation recommended.'}</p>
+                    <p className="text-charcoal-600">{acc.category} in {acc.city || acc.neighborhood || 'Prime Center'}</p>
+                    <p className="text-[11px] text-charcoal-400 italic">{acc.booking_advice || 'Free cancellation recommended. Click to view on map & reserve.'}</p>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Personal Certified Local Guide */}
+            {itinerary.assigned_guide && (
+              <div className="bg-white rounded-3xl border border-charcoal-100 p-6 shadow-soft space-y-4">
+                <div className="flex items-center justify-between border-b border-charcoal-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-forest-800" />
+                    <h3 className="font-serif text-lg font-medium text-charcoal-900">Personal Certified Local Guide</h3>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-sage-100 text-forest-800 border border-sage-200">
+                    Verified Guide
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-2xl bg-ivory-50">
+                  <img
+                    src={itinerary.assigned_guide.photo_url || '/images/guides/guide_1.jpg'}
+                    alt={itinerary.assigned_guide.display_name}
+                    className="w-16 h-16 rounded-2xl object-cover border border-charcoal-200"
+                  />
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-serif text-base font-medium text-charcoal-900">
+                        {itinerary.assigned_guide.display_name}
+                      </h4>
+                      <span className="text-xs font-semibold text-forest-800">
+                        ₹{itinerary.assigned_guide.daily_rate.toLocaleString('en-IN')} / day
+                      </span>
+                    </div>
+                    <p className="text-xs text-charcoal-600 line-clamp-2">
+                      {itinerary.assigned_guide.bio}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {itinerary.assigned_guide.languages.map((l: string, i: number) => (
+                        <span key={i} className="px-2 py-0.5 rounded-full bg-white text-[10px] font-medium text-charcoal-600 border border-charcoal-200">
+                          {l}
+                        </span>
+                      ))}
+                      {itinerary.assigned_guide.specialties.map((s: string, i: number) => (
+                        <span key={i} className="px-2 py-0.5 rounded-full bg-sage-50 text-[10px] font-medium text-forest-800 border border-sage-200">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

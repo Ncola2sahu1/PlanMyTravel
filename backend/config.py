@@ -58,6 +58,8 @@ class Config:
     HOTELBEDS_API_SECRET = os.environ.get("HOTELBEDS_API_SECRET", "").strip()
     HOTELBEDS_BASE_URL = os.environ.get("HOTELBEDS_BASE_URL", "https://api.test.hotelbeds.com").strip().rstrip("/")
     SERPAPI_API_KEY = os.environ.get("SERPAPI_API_KEY", "").strip()
+    GOOGLE_WEATHER_API_KEY = os.environ.get("GOOGLE_WEATHER_API_KEY", "").strip()
+    GOOGLE_MAPS_DEMO_KEY = os.environ.get("GOOGLE_MAPS_DEMO_KEY", "").strip()
 
     # Image Infrastructure
     CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME", "").strip()
