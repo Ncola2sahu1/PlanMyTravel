@@ -4,10 +4,36 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, g, session
 from backend.models.guide import Guide
 from backend.models.user import User
+from backend.services.cloudinary_service import CloudinaryService
 from backend.database import db
 
 logger = logging.getLogger(__name__)
 guide_bp = Blueprint("guide_bp", __name__, url_prefix="/api/guides")
+cloudinary_service = CloudinaryService()
+
+
+@guide_bp.route("/upload", methods=["POST"])
+def upload_guide_file():
+    """Upload candidate portrait or government ID document directly to Cloudinary."""
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    file = request.files["file"]
+    if not file.filename:
+        return jsonify({"error": "Empty filename"}), 400
+
+    folder = request.form.get("folder", "planmytravel/guides")
+    try:
+        result = cloudinary_service.upload_image(file, folder=folder)
+        return jsonify({
+            "success": True,
+            "url": result.get("url"),
+            "public_id": result.get("public_id"),
+            "provider": result.get("provider", "cloudinary"),
+        }), 201
+    except Exception as e:
+        logger.error("Guide upload to Cloudinary failed: %s", e)
+        return jsonify({"error": f"Upload failed: {e}"}), 500
 
 
 @guide_bp.route("", methods=["GET"])

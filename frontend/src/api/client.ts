@@ -1,7 +1,7 @@
 let csrfTokenCache: string | null = null;
 
-export async function fetchCsrfToken(): Promise<string> {
-  if (csrfTokenCache) return csrfTokenCache;
+export async function fetchCsrfToken(forceRefresh = false): Promise<string> {
+  if (csrfTokenCache && !forceRefresh) return csrfTokenCache;
   try {
     const res = await fetch('/api/auth/csrf', { credentials: 'include' });
     if (res.ok) {
@@ -13,6 +13,10 @@ export async function fetchCsrfToken(): Promise<string> {
     console.error('Failed to fetch CSRF token:', err);
   }
   return '';
+}
+
+export function clearCsrfCache(): void {
+  csrfTokenCache = null;
 }
 
 export async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -35,7 +39,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
     }
   }
 
-  const response = await fetch(endpoint, {
+  let response = await fetch(endpoint, {
     ...options,
     headers,
     credentials: 'include',
@@ -47,6 +51,34 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
     data = await response.json();
   } else {
     data = await response.text();
+  }
+
+  // Update CSRF token cache if server returned a fresh token
+  if (data && typeof data === 'object' && data.csrf_token) {
+    csrfTokenCache = data.csrf_token;
+  }
+
+  // If failed with CSRF error, refresh token and retry once
+  if (response.status === 403 && (data?.error?.includes('CSRF') || data?.message?.includes('CSRF'))) {
+    csrfTokenCache = null;
+    const newToken = await fetchCsrfToken(true);
+    if (newToken) {
+      headers['X-CSRF-Token'] = newToken;
+      response = await fetch(endpoint, {
+        ...options,
+        headers,
+        credentials: 'include',
+      });
+      const retryType = response.headers.get('content-type') || '';
+      if (retryType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        data = await response.text();
+      }
+      if (data && typeof data === 'object' && data.csrf_token) {
+        csrfTokenCache = data.csrf_token;
+      }
+    }
   }
 
   if (!response.ok) {
@@ -109,6 +141,11 @@ export const api = {
     return apiRequest(`/api/guides?${query.toString()}`);
   },
   getGuide: (id: number | string) => apiRequest(`/api/guides/${id}`),
+  uploadGuideMedia: (formData: FormData) =>
+    apiRequest<{ success: boolean; url: string; public_id?: string }>('/api/guides/upload', {
+      method: 'POST',
+      body: formData,
+    }),
   registerGuide: (payload: Record<string, any>) =>
     apiRequest('/api/guides/register', { method: 'POST', body: JSON.stringify(payload) }),
 

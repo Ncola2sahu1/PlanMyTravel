@@ -4,6 +4,8 @@ from backend.models.trip import Trip, ItineraryPlan, ItineraryDay, ItineraryItem
 from backend.models.wallet import Wallet, WalletTransaction
 from backend.models.booking import Booking, Expense, Review
 from backend.models.media import MediaAsset
+from backend.models.guide import Guide
+from backend.models.stay import Stay
 
 __all__ = [
     "User",
@@ -23,5 +25,7 @@ __all__ = [
     "Expense",
     "Review",
     "MediaAsset",
+    "Guide",
+    "Stay",
 ]
 

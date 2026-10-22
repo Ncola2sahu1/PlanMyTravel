@@ -499,10 +499,22 @@ class HotelService:
             logger.warning("Hotelbeds health check failed: %s", e)
             return {"status": "unavailable", "error": str(e)}
 
+    def _get_stays_from_db(self) -> List[Dict[str, Any]]:
+        """Fetch all stays directly from Turso database with fallback to in-memory catalog."""
+        try:
+            from backend.models.stay import Stay
+            db_stays = Stay.query.order_by(Stay.rating.desc()).all()
+            if db_stays:
+                return [s.to_dict() for s in db_stays]
+        except Exception as e:
+            logger.warning("Could not query stays from Turso database: %s", e)
+        return CURATED_HOTELS_CATALOG
+
     def search_hotels(self, destination: str = "", limit: int = 16) -> List[Dict[str, Any]]:
-        """Search hotels matching the target destination/region.
+        """Search hotels matching the target destination/region from Turso database.
         Guarantees that stays strictly belong to the searched location/country.
         """
+        catalog = self._get_stays_from_db()
         dest_query = (destination or "").strip().lower()
 
         # If a destination is requested, filter our verified global catalog
@@ -529,7 +541,7 @@ class HotelService:
 
             search_terms = list(set(search_terms))
 
-            for hotel in CURATED_HOTELS_CATALOG:
+            for hotel in catalog:
                 hotel_searchable = f"{hotel['name']} {hotel['city']} {hotel['country']} {hotel.get('region', '')}".lower()
                 if any(term in hotel_searchable for term in search_terms):
                     matched.append(hotel)
@@ -539,7 +551,7 @@ class HotelService:
 
             # If user entered a unique search query like "luxury", "pool", "palace"
             keyword_matches = [
-                h for h in CURATED_HOTELS_CATALOG
+                h for h in catalog
                 if dest_query in h["name"].lower()
                 or dest_query in h["category"].lower()
                 or dest_query in h["description"].lower()
@@ -549,11 +561,20 @@ class HotelService:
                 return keyword_matches[:limit]
 
         # If no destination filter is provided, return rich cross-country portfolio
-        return CURATED_HOTELS_CATALOG[:limit]
+        return catalog[:limit]
 
     def get_hotel_by_id(self, hotel_id: str) -> Optional[Dict[str, Any]]:
-        """Retrieve full property profile by ID."""
-        for hotel in CURATED_HOTELS_CATALOG:
+        """Retrieve full property profile by ID from Turso database."""
+        try:
+            from backend.models.stay import Stay
+            stay = Stay.query.filter((Stay.id == str(hotel_id)) | (Stay.provider_code == str(hotel_id))).first()
+            if stay:
+                return stay.to_dict()
+        except Exception as e:
+            logger.warning("Could not query stay %s from Turso: %s", hotel_id, e)
+
+        catalog = self._get_stays_from_db()
+        for hotel in catalog:
             if str(hotel["id"]) == str(hotel_id) or str(hotel.get("provider_code")) == str(hotel_id):
                 return hotel
-        return CURATED_HOTELS_CATALOG[0] if CURATED_HOTELS_CATALOG else None
+        return catalog[0] if catalog else None

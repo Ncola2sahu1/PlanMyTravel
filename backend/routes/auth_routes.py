@@ -98,7 +98,8 @@ def login():
 def logout():
     """Clear user session."""
     session.clear()
-    return jsonify({"message": "Signed out successfully"})
+    token = generate_csrf_token()
+    return jsonify({"message": "Signed out successfully", "csrf_token": token})
 
 
 @auth_bp.route("/me", methods=["GET"])
@@ -172,4 +173,5 @@ def admin_logout():
     session.pop("admin_email", None)
     session.pop("admin_role", None)
     session.pop("admin_login_time", None)
-    return jsonify({"message": "Admin session terminated"})
+    token = generate_csrf_token()
+    return jsonify({"message": "Admin session terminated", "csrf_token": token})

@@ -24,8 +24,10 @@ export const GuideRegistrationPage: React.FC = () => {
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>(['Culinary & Foodie', 'Architectural Heritage']);
 
   // Photo & ID Document
-  const [photoUrl, setPhotoUrl] = useState('/images/guides/guide_1.jpg');
+  const [photoUrl, setPhotoUrl] = useState('https://res.cloudinary.com/lctkyf89/image/upload/v1792687464/planmytravel/guides/prototype_guide_1.jpg');
   const [idDocumentUrl, setIdDocumentUrl] = useState('https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingId, setUploadingId] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -72,29 +74,53 @@ export const GuideRegistrationPage: React.FC = () => {
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setPhotoUrl(event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    // Show temporary local preview while uploading
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setPhotoUrl(event.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+
+    // Direct upload to Cloudinary storage
+    try {
+      setUploadingPhoto(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'planmytravel/guides');
+      const res = await api.uploadGuideMedia(formData);
+      if (res?.url) {
+        setPhotoUrl(res.url);
+      }
+    } catch (err: any) {
+      console.error('Failed to upload photo to Cloudinary:', err);
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
-  const handleIdUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleIdUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setIdDocumentUrl(event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    try {
+      setUploadingId(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'planmytravel/guide_ids');
+      const res = await api.uploadGuideMedia(formData);
+      if (res?.url) {
+        setIdDocumentUrl(res.url);
+      }
+    } catch (err: any) {
+      console.error('Failed to upload ID proof to Cloudinary:', err);
+    } finally {
+      setUploadingId(false);
     }
   };
 
@@ -376,9 +402,16 @@ export const GuideRegistrationPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {/* Guide Photo */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold uppercase tracking-wider text-charcoal-500">
-                Guide Profile Photo *
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold uppercase tracking-wider text-charcoal-500">
+                  Guide Profile Photo *
+                </label>
+                {uploadingPhoto ? (
+                  <span className="text-[10px] text-forest-700 animate-pulse font-medium">Uploading to Cloudinary...</span>
+                ) : photoUrl.includes('cloudinary.com') ? (
+                  <span className="text-[10px] text-sage-700 font-medium">✓ Hosted on Cloudinary</span>
+                ) : null}
+              </div>
               <div className="flex items-center gap-4">
                 <img
                   src={photoUrl}
@@ -390,7 +423,8 @@ export const GuideRegistrationPage: React.FC = () => {
                     type="file"
                     accept="image/*"
                     onChange={handlePhotoUpload}
-                    className="text-xs text-charcoal-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-forest-800 file:text-white cursor-pointer"
+                    disabled={uploadingPhoto}
+                    className="text-xs text-charcoal-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-forest-800 file:text-white cursor-pointer disabled:opacity-50"
                   />
                   <p className="text-[10px] text-charcoal-400 mt-1">
                     Clear portrait photograph. Real AI face generated from thispersondoesnotexist used as demo default.
@@ -401,9 +435,16 @@ export const GuideRegistrationPage: React.FC = () => {
 
             {/* Government ID Document */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold uppercase tracking-wider text-charcoal-500">
-                Government ID / Guide License *
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold uppercase tracking-wider text-charcoal-500">
+                  Government ID / Guide License *
+                </label>
+                {uploadingId ? (
+                  <span className="text-[10px] text-forest-700 animate-pulse font-medium">Uploading to Cloudinary...</span>
+                ) : idDocumentUrl.includes('cloudinary.com') ? (
+                  <span className="text-[10px] text-sage-700 font-medium">✓ ID Verified on Cloudinary</span>
+                ) : null}
+              </div>
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-2xl bg-ivory-100 border border-charcoal-200 flex items-center justify-center text-charcoal-500 flex-shrink-0">
                   <FileText className="w-7 h-7 text-forest-800" />
@@ -413,7 +454,8 @@ export const GuideRegistrationPage: React.FC = () => {
                     type="file"
                     accept="image/*,.pdf"
                     onChange={handleIdUpload}
-                    className="text-xs text-charcoal-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-charcoal-900 file:text-white cursor-pointer"
+                    disabled={uploadingId}
+                    className="text-xs text-charcoal-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-charcoal-900 file:text-white cursor-pointer disabled:opacity-50"
                   />
                   <p className="text-[10px] text-charcoal-400 mt-1">
                     Upload Passport, National ID card, or state guide license for staff audit.
