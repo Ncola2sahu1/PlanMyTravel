@@ -1,0 +1,25 @@
+{
+  "name": "planmytravel",
+  "version": "1.0.0",
+  "description": "Premium, Minimalist, AI-Powered Travel Platform inspired by Airbnb",
+  "private": true,
+  "scripts": {
+    "build": "cd frontend && npm run build",
+    "dev": "cd frontend && npm run dev",
+    "start": "python3 wsgi.py",
+    "test": "python3 -m pytest tests/test_api.py -v"
+  },
+  "keywords": [
+    "travel",
+    "ai",
+    "gemini",
+    "concierge",
+    "hotelbeds",
+    "razorpay",
+    "flask",
+    "react"
+  ],
+  "author": "PlanMyTravel Team",
+  "license": "MIT"
+}
+

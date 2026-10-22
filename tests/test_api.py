@@ -1,0 +1,239 @@
+import pytest
+import time
+import random
+import json
+from backend.app import create_app
+from backend.database import db
+from backend.models.user import User, AdminUser
+from backend.models.destination import Destination
+from backend.models.wallet import Wallet
+from backend.models.booking import Booking
+from backend.services.payment_service import PaymentService
+from backend.services.wallet_service import WalletService
+from backend.services.hotel_service import HotelService
+from backend.services.flight_service import FlightService
+from backend.services.ai_travel_service import AITravelService
+
+
+@pytest.fixture
+def app():
+    app = create_app()
+    app.config["TESTING"] = True
+    yield app
+
+
+@pytest.fixture
+def client(app):
+    return app.test_client()
+
+
+def get_authenticated_client(client, email=None, password="Password123!"):
+    """Helper to register and login user with CSRF token."""
+    user_email = email or f"traveler_{random.randint(10000, 999999)}@planmytravel.com"
+    res = client.post("/api/auth/register", json={
+        "email": user_email,
+        "password": password,
+        "name": "Test Traveller"
+    })
+    csrf = res.get_json().get("csrf_token", "")
+    return client, csrf
+
+
+def test_health_check(client):
+    res = client.get("/api/health")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["status"] == "healthy"
+    assert data["database"] == "connected"
+    assert "integrations" in data
+
+
+def test_destination_listing_and_filtering(client):
+    res = client.get("/api/destinations")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["total"] > 0
+    assert len(data["destinations"]) > 0
+
+    # Test keyword query
+    res_q = client.get("/api/destinations?q=Singapore")
+    assert res_q.status_code == 200
+    data_q = res_q.get_json()
+    assert any("Singapore" in d["name"] for d in data_q["destinations"])
+
+    # Test single destination details
+    res_single = client.get("/api/destinations/singapore")
+    assert res_single.status_code == 200
+    data_single = res_single.get_json()
+    assert data_single["name"] == "Singapore"
+    assert "related_stays" in data_single
+
+
+def test_stays_discovery_and_hotelbeds_adapter(client):
+    res = client.get("/api/stays")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert "stays" in data
+    assert len(data["stays"]) > 0
+    first_stay = data["stays"][0]
+    assert "nightly_rate" in first_stay
+    assert "amenities" in first_stay
+    assert "is_verified_provider" in first_stay
+
+
+def test_flights_discovery_adapter(client):
+    res = client.get("/api/flights/search?origin=DEL&destination=SIN")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert "outbound" in data
+    assert len(data["outbound"]) > 0
+    assert "Singapore Airlines" in [f["airline"] for f in data["outbound"]]
+
+
+def test_csrf_protection_blocks_unsigned_mutations(client):
+    # Attempting POST without CSRF token must return 403
+    res = client.post("/api/trips", json={"title": "Unauthorized Trip"})
+    assert res.status_code in (401, 403)
+
+
+def test_auth_workflow_and_session(client):
+    email = f"user_{random.randint(10000, 999999)}@test.com"
+    reg_res = client.post("/api/auth/register", json={
+        "email": email,
+        "password": "Password123!",
+        "name": "Jane Explorer"
+    })
+    assert reg_res.status_code == 201
+    csrf_token = reg_res.get_json()["csrf_token"]
+
+    # Check /api/auth/me
+    me_res = client.get("/api/auth/me")
+    assert me_res.status_code == 200
+    assert me_res.get_json()["authenticated"] is True
+    assert me_res.get_json()["user"]["email"] == email
+
+    # Logout
+    logout_res = client.post("/api/auth/logout", headers={"X-CSRF-Token": csrf_token})
+    assert logout_res.status_code == 200
+
+    # Verify session cleared
+    me_res_after = client.get("/api/auth/me")
+    assert me_res_after.get_json()["authenticated"] is False
+
+
+def test_wallet_order_creation_validation(client):
+    auth_client, csrf = get_authenticated_client(client, f"wallet_val_{random.randint(1000, 99999)}@test.com")
+    headers = {"X-CSRF-Token": csrf}
+
+    # Invalid negative or zero amount
+    res_zero = auth_client.post("/api/wallet/create-order", json={"amount": 0}, headers=headers)
+    assert res_zero.status_code == 400
+
+    # Valid amount
+    res_valid = auth_client.post("/api/wallet/create-order", json={"amount": 2500}, headers=headers)
+    assert res_valid.status_code == 200
+    order_data = res_valid.get_json()["order"]
+    assert order_data["amount"] == 250000  # 2500 INR = 250,000 paise
+
+
+def test_wallet_credit_and_idempotent_deduplication(app):
+    with app.app_context():
+        # Create test user
+        unique_email = f"ledger_test_{random.randint(1000, 99999)}@planmytravel.com"
+        user = User(email=unique_email, name="Ledger Tester")
+        user.set_password("Pass123!")
+        db.session.add(user)
+        db.session.commit()
+
+        ref = f"pay_test_idem_{user.id}_{int(time.time())}"
+
+        # 1. First credit
+        res1 = WalletService.credit_wallet(user.id, amount_rupees=3000.0, reference=ref)
+        assert res1["success"] is True
+        assert res1["already_processed"] is False
+        initial_balance = res1["balance"]
+
+        # 2. Duplicate credit with same reference must be idempotent
+        res2 = WalletService.credit_wallet(user.id, amount_rupees=3000.0, reference=ref)
+        assert res2["success"] is True
+        assert res2["already_processed"] is True
+        assert res2["balance"] == initial_balance
+
+
+def test_wallet_insufficient_funds_rejection(app):
+    with app.app_context():
+        unique_email = f"poor_traveler_{random.randint(1000, 99999)}@planmytravel.com"
+        user = User(email=unique_email, name="Traveler")
+        user.set_password("Pass123!")
+        db.session.add(user)
+        db.session.commit()
+
+        # Set wallet balance to 500
+        wallet = WalletService.get_or_create_wallet(user.id)
+        wallet.balance = 500.0
+        db.session.commit()
+
+        # Attempt to debit 10,000
+        with pytest.raises(ValueError, match="Insufficient wallet balance"):
+            WalletService.debit_wallet(user.id, amount_rupees=10000.0, description="Luxury stay")
+
+
+def test_booking_creation_and_wallet_atomic_payment(client):
+    auth_client, csrf = get_authenticated_client(client, f"booking_flow_{random.randint(1000, 99999)}@test.com")
+    headers = {"X-CSRF-Token": csrf}
+
+    # Top up wallet with 8,000
+    ord_res = auth_client.post("/api/wallet/create-order", json={"amount": 8000}, headers=headers)
+    order_id = ord_res.get_json()["order"]["order_id"]
+    auth_client.post("/api/wallet/verify-payment", json={
+        "razorpay_order_id": order_id,
+        "razorpay_payment_id": f"pay_flow_{order_id}",
+        "razorpay_signature": "sig_valid",
+        "amount": 8000,
+    }, headers=headers)
+
+    # Create Booking for 5,000
+    bk_res = auth_client.post("/api/bookings", json={
+        "total_amount": 5000,
+        "travelers_count": 2,
+    }, headers=headers)
+    assert bk_res.status_code == 201
+    bk_id = bk_res.get_json()["booking"]["id"]
+
+    # Pay Booking via Wallet
+    pay_res = auth_client.post(f"/api/bookings/{bk_id}/pay-wallet", headers=headers)
+    assert pay_res.status_code == 200
+    pay_data = pay_res.get_json()
+    assert pay_data["success"] is True
+    assert pay_data["booking"]["payment_status"] == "paid"
+    assert pay_data["booking"]["status"] == "confirmed"
+    assert pay_data["wallet_balance"] == 3000.0  # 8000 - 5000 = 3000
+
+
+def test_unauthorized_user_cannot_access_other_users_trips(app):
+    client_a = app.test_client()
+    client_b = app.test_client()
+
+    # User A
+    email_a = f"user_a_{random.randint(1000, 99999)}@test.com"
+    _, csrf_a = get_authenticated_client(client_a, email_a)
+    save_res = client_a.post("/api/trips", json={
+        "title": "Private Trip User A",
+        "itinerary": {"destination": "Tokyo", "days": []},
+        "preferences": {"budget": 50000}
+    }, headers={"X-CSRF-Token": csrf_a})
+    trip_id_a = save_res.get_json()["trip"]["id"]
+
+    # User B
+    email_b = f"user_b_{random.randint(1000, 99999)}@test.com"
+    _, csrf_b = get_authenticated_client(client_b, email_b)
+
+    # User B tries to read User A's trip -> MUST return 404
+    get_res = client_b.get(f"/api/trips/{trip_id_a}")
+    assert get_res.status_code == 404
+
+
+def test_admin_route_security_rejects_unauthorized(client):
+    # Traveler attempts to call admin stats -> MUST return 403
+    res = client.get("/api/admin/stats")
+    assert res.status_code in (401, 403)

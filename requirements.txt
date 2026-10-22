@@ -1,0 +1,25 @@
+# Core Flask & Server
+flask>=3.1.0
+werkzeug>=3.1.0
+
+# Database & Turso libSQL
+flask-sqlalchemy>=3.1.0
+sqlalchemy>=2.0.0
+sqlalchemy-libsql>=0.2.0
+libsql-experimental>=0.0.55
+
+# AI Integration
+google-genai>=2.17.0
+pydantic>=2.10.0
+
+# HTTP & External APIs
+requests>=2.32.0
+python-dotenv>=1.0.0
+
+# Payments & Media
+razorpay>=2.0.1
+cloudinary>=1.46.0
+
+# Testing
+pytest>=8.0.0
+
