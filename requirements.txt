@@ -6,7 +6,6 @@ werkzeug>=3.1.0
 flask-sqlalchemy>=3.1.0
 sqlalchemy>=2.0.0
 sqlalchemy-libsql>=0.2.0
-libsql-experimental>=0.0.55
 
 # AI Integration
 google-genai>=2.17.0
