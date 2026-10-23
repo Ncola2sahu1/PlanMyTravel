@@ -4,6 +4,7 @@ from pathlib import Path
 from flask import Flask, send_from_directory, jsonify
 from backend.config import Config
 from backend.database import db
+import backend.models
 from backend.utils.auth_helpers import validate_csrf, bootstrap_admin_account
 from backend.utils.seed_data import seed_database_if_needed
 
@@ -106,14 +107,29 @@ def create_app(test_config=None) -> Flask:
             "destinations": "/api/destinations",
         })
 
-    # Safe schema & bootstrap check
+       # Database schema & bootstrap diagnostics
     with app.app_context():
         try:
-            # We preserve existing tables and seed curated content safely
+            logger.info("Database initialization started")
+            logger.info(
+                "Database driver configured: %s",
+                "Turso/libSQL"
+                if Config.TURSO_DATABASE_URL and Config.TURSO_AUTH_TOKEN
+                else "Local SQLite fallback"
+            )
+
+            db.create_all()
+            logger.info("Database tables created/verified successfully")
+
+        except Exception:
+            logger.exception("DATABASE CREATE_ALL FAILED")
+
+        try:
             bootstrap_admin_account()
             seed_database_if_needed()
-        except Exception as e:
-            logger.warning("Database bootstrap/seed notice: %s", e)
+        except Exception:
+            logger.exception("DATABASE BOOTSTRAP OR SEED FAILED")
+
 
     return app
 
